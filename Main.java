@@ -1,6 +1,7 @@
+
 import facade.ParkingFacade;
 import gui.MainGUI;
-import database.DatabaseManager;
+
 import javax.swing.*;
 
 public class Main {
