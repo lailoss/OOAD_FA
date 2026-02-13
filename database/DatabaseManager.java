@@ -14,6 +14,7 @@ public class DatabaseManager {
     private DatabaseManager() {
         try {
             Class.forName(DatabaseConfig.DRIVER);
+            System.out.println("✅ MySQL JDBC Driver loaded");
         } catch (ClassNotFoundException e) {
             System.err.println("❌ MySQL JDBC Driver not found!");
             System.err.println("📦 Please add mysql-connector-java-8.0.33.jar to project libraries");
@@ -29,20 +30,46 @@ public class DatabaseManager {
     
     public void connect() {
         try {
+            String url = DatabaseConfig.URL + DatabaseConfig.DB_NAME 
+                       + "?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
+            
             connection = DriverManager.getConnection(
-                DatabaseConfig.URL + DatabaseConfig.DB_NAME + "?useSSL=false&serverTimezone=UTC",
+                url, 
                 DatabaseConfig.USERNAME, 
                 DatabaseConfig.PASSWORD
             );
+            
             System.out.println("✅ MySQL Database connected successfully!");
             System.out.println("📁 Database: " + DatabaseConfig.DB_NAME);
             System.out.println("🔌 Host: localhost:3306");
+            System.out.println("👤 User: " + DatabaseConfig.USERNAME);
+            
+            // Test connection
+            testConnection();
+            
         } catch (SQLException e) {
-            System.err.println("❌ Database connection failed: " + e.getMessage());
-            System.err.println("💡 Make sure XAMPP/WAMP MySQL is running!");
-            System.err.println("💡 Also ensure database '" + DatabaseConfig.DB_NAME + "' exists");
-            System.err.println("💡 Import schema.sql using phpMyAdmin");
+            System.err.println("\n❌ DATABASE CONNECTION FAILED!");
+            System.err.println("========================================");
+            System.err.println("Error: " + e.getMessage());
+            System.err.println("========================================");
+            System.err.println("💡 FIX THESE ISSUES:");
+            System.err.println("1. Is XAMPP/WAMP running? Start MySQL");
+            System.err.println("2. Did you import schema.sql?");
+            System.err.println("3. Check credentials in DatabaseConfig.java");
+            System.err.println("4. Is port 3306 free? (Check XAMPP)");
+            System.err.println("========================================\n");
         }
+    }
+    
+    private void testConnection() throws SQLException {
+        Statement stmt = connection.createStatement();
+        ResultSet rs = stmt.executeQuery("SELECT COUNT(*) as count FROM parking_spots");
+        if (rs.next()) {
+            int spots = rs.getInt("count");
+            System.out.println("✅ Database test: " + spots + " parking spots loaded");
+        }
+        rs.close();
+        stmt.close();
     }
     
     public void disconnect() {
@@ -69,6 +96,7 @@ public class DatabaseManager {
             pstmt.setString(4, vehicle.getVehicleType().name());
             pstmt.setBoolean(5, vehicle.hasHandicappedCard());
             pstmt.executeUpdate();
+            System.out.println("✅ Vehicle saved: " + vehicle.getLicensePlate());
         } catch (SQLException e) {
             System.err.println("❌ Error saving vehicle: " + e.getMessage());
         }
@@ -90,6 +118,7 @@ public class DatabaseManager {
             
             pstmt.setString(3, spot.getSpotId());
             pstmt.executeUpdate();
+            System.out.println("✅ Spot updated: " + spot.getSpotId() + " - " + spot.getStatus());
         } catch (SQLException e) {
             System.err.println("❌ Error updating spot: " + e.getMessage());
         }
@@ -107,6 +136,7 @@ public class DatabaseManager {
             pstmt.setTimestamp(4, Timestamp.valueOf(ticket.getEntryTime()));
             pstmt.setBoolean(5, true);
             pstmt.executeUpdate();
+            System.out.println("✅ Ticket saved: " + ticket.getTicketId());
         } catch (SQLException e) {
             System.err.println("❌ Error saving ticket: " + e.getMessage());
         }
@@ -121,7 +151,7 @@ public class DatabaseManager {
             
             if (rs.next()) {
                 // For full implementation, you would reconstruct the Ticket object
-                // For this assignment, we'll rely on in-memory objects
+                // For this assignment, we rely on in-memory objects in ParkingFacade
                 return null;
             }
         } catch (SQLException e) {
@@ -137,6 +167,7 @@ public class DatabaseManager {
             pstmt.setTimestamp(1, Timestamp.valueOf(LocalDateTime.now()));
             pstmt.setString(2, ticketId);
             pstmt.executeUpdate();
+            System.out.println("✅ Ticket deactivated: " + ticketId);
         } catch (SQLException e) {
             System.err.println("❌ Error deactivating ticket: " + e.getMessage());
         }
@@ -154,6 +185,7 @@ public class DatabaseManager {
             pstmt.setString(4, fine.getReason());
             pstmt.setBoolean(5, fine.isPaid());
             pstmt.executeUpdate();
+            System.out.println("✅ Fine saved: RM" + fine.getAmount() + " - " + fine.getReason());
         } catch (SQLException e) {
             System.err.println("❌ Error saving fine: " + e.getMessage());
         }
@@ -176,6 +208,9 @@ public class DatabaseManager {
                 fine.setFineId(rs.getString("fine_id"));
                 fines.add(fine);
             }
+            if (!fines.isEmpty()) {
+                System.out.println("✅ Found " + fines.size() + " unpaid fines for " + licensePlate);
+            }
         } catch (SQLException e) {
             System.err.println("❌ Error getting fines: " + e.getMessage());
         }
@@ -190,6 +225,7 @@ public class DatabaseManager {
             pstmt.setTimestamp(1, Timestamp.valueOf(LocalDateTime.now()));
             pstmt.setString(2, fineId);
             pstmt.executeUpdate();
+            System.out.println("✅ Fine marked as paid: " + fineId);
         } catch (SQLException e) {
             System.err.println("❌ Error marking fine as paid: " + e.getMessage());
         }
@@ -210,6 +246,8 @@ public class DatabaseManager {
             pstmt.setDouble(6, receipt.getTotalFines());
             pstmt.setDouble(7, receipt.getTotalAmount());
             pstmt.executeUpdate();
+            System.out.println("✅ Receipt saved: " + receipt.getReceiptId());
+            System.out.println("💰 Amount: RM" + String.format("%.2f", receipt.getTotalAmount()));
         } catch (SQLException e) {
             System.err.println("❌ Error saving receipt: " + e.getMessage());
         }
@@ -223,7 +261,9 @@ public class DatabaseManager {
         try (Statement stmt = connection.createStatement()) {
             ResultSet rs = stmt.executeQuery(sql);
             if (rs.next()) {
-                return rs.getDouble("total");
+                double revenue = rs.getDouble("total");
+                System.out.println("💰 Total revenue from DB: RM" + String.format("%.2f", revenue));
+                return revenue;
             }
         } catch (SQLException e) {
             System.err.println("❌ Error getting revenue: " + e.getMessage());
@@ -250,6 +290,7 @@ public class DatabaseManager {
                 
                 allFines.computeIfAbsent(plate, k -> new ArrayList<>()).add(fine);
             }
+            System.out.println("✅ Retrieved unpaid fines: " + allFines.size() + " vehicles");
         } catch (SQLException e) {
             System.err.println("❌ Error getting unpaid fines: " + e.getMessage());
         }
@@ -263,27 +304,43 @@ public class DatabaseManager {
         try (Statement stmt = connection.createStatement()) {
             ResultSet rs = stmt.executeQuery(sql);
             if (rs.next()) {
-                return FineSchemeType.valueOf(rs.getString("scheme_type"));
+                FineSchemeType type = FineSchemeType.valueOf(rs.getString("scheme_type"));
+                System.out.println("✅ Active fine scheme: " + type);
+                return type;
             }
         } catch (SQLException e) {
             System.err.println("❌ Error getting active fine scheme: " + e.getMessage());
         }
         
-        return FineSchemeType.FIXED;
+        return FineSchemeType.FIXED; // Default
     }
     
     public void setActiveFineScheme(FineSchemeType schemeType) {
-        String sql = "UPDATE fine_schemes SET is_active = false";
+        String sql1 = "UPDATE fine_schemes SET is_active = false";
+        String sql2 = "UPDATE fine_schemes SET is_active = true WHERE scheme_type = ?";
         
-        try (Statement stmt = connection.createStatement()) {
-            stmt.executeUpdate(sql);
+        try {
+            connection.setAutoCommit(false);
             
-            sql = "UPDATE fine_schemes SET is_active = true WHERE scheme_type = ?";
-            try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            try (Statement stmt = connection.createStatement()) {
+                stmt.executeUpdate(sql1);
+            }
+            
+            try (PreparedStatement pstmt = connection.prepareStatement(sql2)) {
                 pstmt.setString(1, schemeType.name());
                 pstmt.executeUpdate();
             }
+            
+            connection.commit();
+            connection.setAutoCommit(true);
+            System.out.println("✅ Active fine scheme changed to: " + schemeType);
+            
         } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException ex) {
+                System.err.println("❌ Rollback failed: " + ex.getMessage());
+            }
             System.err.println("❌ Error setting fine scheme: " + e.getMessage());
         }
     }
