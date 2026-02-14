@@ -10,6 +10,7 @@ import java.util.*;
 public class DatabaseManager {
     private static DatabaseManager instance;
     private Connection connection;
+    private boolean isConnected = false;  // ADDED THIS LINE
     
     private DatabaseManager() {
         try {
@@ -29,53 +30,71 @@ public class DatabaseManager {
     }
     
     public void connect() {
+        // FORCE IPv4 for localhost
+        System.setProperty("java.net.preferIPv4Stack", "true");
+        
         try {
-            String url = DatabaseConfig.URL + DatabaseConfig.DB_NAME 
-                       + "?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true";
+            String url = "jdbc:mysql://localhost:3306/" + DatabaseConfig.DB_NAME + 
+                         "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
             
-            connection = DriverManager.getConnection(
-                url, 
-                DatabaseConfig.USERNAME, 
-                DatabaseConfig.PASSWORD
-            );
+            System.out.println("🔌 Connecting to: " + url);
+            connection = DriverManager.getConnection(url, "root", "");
+            isConnected = true;  // FIXED: Set connected to true
+            System.out.println("✅ Connected to localhost!");
             
-            System.out.println("✅ MySQL Database connected successfully!");
-            System.out.println("📁 Database: " + DatabaseConfig.DB_NAME);
-            System.out.println("🔌 Host: localhost:3306");
-            System.out.println("👤 User: " + DatabaseConfig.USERNAME);
-            
-            // Test connection
+            // Test the connection
             testConnection();
             
         } catch (SQLException e) {
-            System.err.println("\n❌ DATABASE CONNECTION FAILED!");
-            System.err.println("========================================");
-            System.err.println("Error: " + e.getMessage());
-            System.err.println("========================================");
-            System.err.println("💡 FIX THESE ISSUES:");
-            System.err.println("1. Is XAMPP/WAMP running? Start MySQL");
-            System.err.println("2. Did you import schema.sql?");
-            System.err.println("3. Check credentials in DatabaseConfig.java");
-            System.err.println("4. Is port 3306 free? (Check XAMPP)");
-            System.err.println("========================================\n");
+            isConnected = false;  // FIXED: Set connected to false on error
+            System.out.println("\n❌ DATABASE CONNECTION FAILED!");
+            System.out.println("========================================");
+            System.out.println("Error: " + e.getMessage());
+            System.out.println("Error Code: " + e.getErrorCode());
+            System.out.println("SQL State: " + e.getSQLState());
+            System.out.println("========================================");
+            System.out.println("💡 FIX THESE ISSUES:");
+            System.out.println("1. Is XAMPP/WAMP running? Start MySQL");
+            System.out.println("2. Did you create database? CREATE DATABASE parking_system;");
+            System.out.println("3. Check credentials in DatabaseConfig.java");
+            System.out.println("4. Is port 3306 free? (Check XAMPP)");
+            System.out.println("========================================\n");
         }
     }
     
+    // ADDED THIS METHOD
+    public boolean isConnected() {
+        return isConnected;
+    }
+    
     private void testConnection() throws SQLException {
-        Statement stmt = connection.createStatement();
-        ResultSet rs = stmt.executeQuery("SELECT COUNT(*) as count FROM parking_spots");
-        if (rs.next()) {
-            int spots = rs.getInt("count");
-            System.out.println("✅ Database test: " + spots + " parking spots loaded");
+        // Check if database exists and has tables
+        DatabaseMetaData meta = connection.getMetaData();
+        ResultSet tables = meta.getTables(null, null, "parking_spots", null);
+        
+        if (tables.next()) {
+            System.out.println("✅ Database 'parking_system' is ready");
+            
+            // Count parking spots
+            Statement stmt = connection.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT COUNT(*) as count FROM parking_spots");
+            if (rs.next()) {
+                int spots = rs.getInt("count");
+                System.out.println("✅ " + spots + " parking spots loaded");
+            }
+            rs.close();
+            stmt.close();
+        } else {
+            System.out.println("⚠️ Tables not found. Run schema.sql to create tables");
         }
-        rs.close();
-        stmt.close();
+        tables.close();
     }
     
     public void disconnect() {
         try {
             if (connection != null && !connection.isClosed()) {
                 connection.close();
+                isConnected = false;
                 System.out.println("✅ Database disconnected");
             }
         } catch (SQLException e) {
@@ -86,6 +105,11 @@ public class DatabaseManager {
     // ============ VEHICLE OPERATIONS ============
     
     public void saveVehicle(Vehicle vehicle) {
+        if (!isConnected) {
+            System.out.println("⚠️ Not connected to database");
+            return;
+        }
+        
         String sql = "INSERT INTO vehicles (license_plate, vehicle_type, has_handicapped_card) VALUES (?, ?, ?) "
                    + "ON DUPLICATE KEY UPDATE vehicle_type = ?, has_handicapped_card = ?";
         
@@ -105,6 +129,11 @@ public class DatabaseManager {
     // ============ PARKING SPOT OPERATIONS ============
     
     public void updateParkingSpot(ParkingSpot spot) {
+        if (!isConnected) {
+            System.out.println("⚠️ Not connected to database");
+            return;
+        }
+        
         String sql = "UPDATE parking_spots SET status = ?, current_vehicle = ? WHERE spot_id = ?";
         
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
@@ -127,6 +156,11 @@ public class DatabaseManager {
     // ============ TICKET OPERATIONS ============
     
     public void saveTicket(Ticket ticket) {
+        if (!isConnected) {
+            System.out.println("⚠️ Not connected to database");
+            return;
+        }
+        
         String sql = "INSERT INTO tickets (ticket_id, license_plate, spot_id, entry_time, is_active) VALUES (?, ?, ?, ?, ?)";
         
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
@@ -143,6 +177,11 @@ public class DatabaseManager {
     }
     
     public Ticket getActiveTicket(String licensePlate) {
+        if (!isConnected) {
+            System.out.println("⚠️ Not connected to database");
+            return null;
+        }
+        
         String sql = "SELECT * FROM tickets WHERE license_plate = ? AND is_active = true ORDER BY entry_time DESC LIMIT 1";
         
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
@@ -161,6 +200,11 @@ public class DatabaseManager {
     }
     
     public void deactivateTicket(String ticketId) {
+        if (!isConnected) {
+            System.out.println("⚠️ Not connected to database");
+            return;
+        }
+        
         String sql = "UPDATE tickets SET is_active = false, exit_time = ? WHERE ticket_id = ?";
         
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
@@ -176,6 +220,11 @@ public class DatabaseManager {
     // ============ FINE OPERATIONS ============
     
     public void saveFine(Fine fine) {
+        if (!isConnected) {
+            System.out.println("⚠️ Not connected to database");
+            return;
+        }
+        
         String sql = "INSERT INTO fines (fine_id, license_plate, amount, reason, is_paid) VALUES (?, ?, ?, ?, ?)";
         
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
@@ -193,6 +242,12 @@ public class DatabaseManager {
     
     public List<Fine> getUnpaidFines(String licensePlate) {
         List<Fine> fines = new ArrayList<>();
+        
+        if (!isConnected) {
+            System.out.println("⚠️ Not connected to database");
+            return fines;
+        }
+        
         String sql = "SELECT * FROM fines WHERE license_plate = ? AND is_paid = false";
         
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
@@ -219,6 +274,11 @@ public class DatabaseManager {
     }
     
     public void markFineAsPaid(String fineId) {
+        if (!isConnected) {
+            System.out.println("⚠️ Not connected to database");
+            return;
+        }
+        
         String sql = "UPDATE fines SET is_paid = true, paid_date = ? WHERE fine_id = ?";
         
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
@@ -234,6 +294,11 @@ public class DatabaseManager {
     // ============ RECEIPT OPERATIONS ============
     
     public void saveReceipt(Receipt receipt) {
+        if (!isConnected) {
+            System.out.println("⚠️ Not connected to database");
+            return;
+        }
+        
         String sql = "INSERT INTO receipts (receipt_id, ticket_id, exit_time, duration_hours, parking_fee, total_fines, total_amount) "
                    + "VALUES (?, ?, ?, ?, ?, ?, ?)";
         
@@ -256,6 +321,11 @@ public class DatabaseManager {
     // ============ REPORT OPERATIONS ============
     
     public double getTotalRevenue() {
+        if (!isConnected) {
+            System.out.println("⚠️ Not connected to database");
+            return 0.0;
+        }
+        
         String sql = "SELECT COALESCE(SUM(total_amount), 0) as total FROM receipts";
         
         try (Statement stmt = connection.createStatement()) {
@@ -274,6 +344,12 @@ public class DatabaseManager {
     
     public Map<String, List<Fine>> getAllUnpaidFines() {
         Map<String, List<Fine>> allFines = new HashMap<>();
+        
+        if (!isConnected) {
+            System.out.println("⚠️ Not connected to database");
+            return allFines;
+        }
+        
         String sql = "SELECT * FROM fines WHERE is_paid = false ORDER BY license_plate";
         
         try (Statement stmt = connection.createStatement()) {
@@ -299,6 +375,11 @@ public class DatabaseManager {
     }
     
     public FineSchemeType getActiveFineScheme() {
+        if (!isConnected) {
+            System.out.println("⚠️ Not connected to database");
+            return FineSchemeType.FIXED;
+        }
+        
         String sql = "SELECT scheme_type FROM fine_schemes WHERE is_active = true LIMIT 1";
         
         try (Statement stmt = connection.createStatement()) {
@@ -316,6 +397,11 @@ public class DatabaseManager {
     }
     
     public void setActiveFineScheme(FineSchemeType schemeType) {
+        if (!isConnected) {
+            System.out.println("⚠️ Not connected to database");
+            return;
+        }
+        
         String sql1 = "UPDATE fine_schemes SET is_active = false";
         String sql2 = "UPDATE fine_schemes SET is_active = true WHERE scheme_type = ?";
         
