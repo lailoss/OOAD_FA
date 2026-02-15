@@ -38,7 +38,7 @@ public class MainGUI extends JFrame {
         
         tabbedPane.addTab("🚗 ENTRY", entryPanel);
         tabbedPane.addTab("🚙 EXIT", exitPanel);
-        tabbedPane.addTab("ADMIN", adminPanel);
+        tabbedPane.addTab("⚙️ ADMIN", adminPanel);
         tabbedPane.addTab("📊 REPORTS", reportingPanel);
         
         add(tabbedPane);

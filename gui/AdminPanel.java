@@ -26,8 +26,8 @@ public class AdminPanel extends JPanel {
     private JTable spotsTable;
     private DefaultTableModel tableModel;
     private JButton refreshButton;
-    private JLabel occupiedLabel;  // Add this
-    private JLabel totalSpotsLabel; // Add this
+    private JLabel occupiedLabel;  
+    private JLabel totalSpotsLabel; 
     
     public AdminPanel(ParkingFacade facade) {
         this.facade = facade;

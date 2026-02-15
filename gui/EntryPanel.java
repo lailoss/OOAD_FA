@@ -97,7 +97,7 @@ public class EntryPanel extends JPanel {
         JPanel actionPanel = new JPanel();
         parkButton = new JButton("Park Vehicle");
         parkButton.setPreferredSize(new Dimension(200, 40));
-        parkButton.setBackground(new Color(255, 165, 0));
+        parkButton.setBackground(new Color(34, 139, 34));
         parkButton.setForeground(Color.BLACK);
         parkButton.setFont(new Font("Arial", Font.BOLD, 14));
         parkButton.setEnabled(false);

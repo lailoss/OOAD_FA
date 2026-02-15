@@ -30,12 +30,11 @@ public class ParkingFacade {
         parkingLot.initializeDefault();
         dbManager.connect();
         
-        // CRITICAL FIX: Load existing data from database
         if (dbManager.isConnected()) {
             System.out.println("\n🔄 Loading existing data from database...");
-            loadParkedVehiclesFromDB();  // Load occupied spots
-            loadRevenueFromDB();          // Load revenue
-            loadFineSchemeFromDB();       // Load fine scheme
+            loadParkedVehiclesFromDB();  
+            loadRevenueFromDB();          
+            loadFineSchemeFromDB();       
         }
         
         System.out.println("✅ Parking System Initialized with MySQL\n");
@@ -43,9 +42,6 @@ public class ParkingFacade {
     
     // ============ DATABASE LOADING METHODS ============
     
-    /**
-     * Loads all currently parked vehicles from the database into the in‑memory parking lot.
-     */
     public void loadParkedVehiclesFromDB() {
         List<ParkingSpot> occupiedSpots = dbManager.getOccupiedSpots();
         int loadedCount = 0;
@@ -57,7 +53,6 @@ public class ParkingFacade {
                 existingSpot.setStatus(SpotStatus.OCCUPIED);
                 loadedCount++;
                 
-                // Debug output
                 System.out.println("   📍 Spot " + spot.getSpotId() + 
                     ": " + spot.getCurrentVehicle().getLicensePlate());
             }
@@ -66,18 +61,12 @@ public class ParkingFacade {
         System.out.println("✅ Loaded " + loadedCount + " parked vehicles from database");
     }
     
-    /**
-     * Load revenue from database
-     */
     private void loadRevenueFromDB() {
         double revenue = dbManager.getTotalRevenue();
         parkingLot.setTotalRevenue(revenue);
         System.out.println("💰 Loaded revenue: RM" + String.format("%.2f", revenue));
     }
-    
-    /**
-     * Load fine scheme from database
-     */
+
     private void loadFineSchemeFromDB() {
         FineSchemeType schemeType = dbManager.getActiveFineScheme();
         setFineScheme(schemeType);
@@ -152,17 +141,20 @@ public class ParkingFacade {
         
         double parkingFee = hours * occupiedSpot.getHourlyRate();
         
+        // Handicapped discount logic
         if (vehicle.hasHandicappedCard() && occupiedSpot.getType() == ParkingSpotType.HANDICAPPED) {
-            parkingFee = 0.0;
+            parkingFee = 0.0; // FREE parking for handicapped in handicapped spot
         } else if (vehicle instanceof HandicappedVehicle) {
-            parkingFee = hours * 2.0;
+            parkingFee = hours * 2.0; // RM2/hour discounted rate
         }
         
         Ticket ticket = new Ticket(vehicle, occupiedSpot);
         
+        // Check for unpaid fines
         List<Fine> unpaidFines = dbManager.getUnpaidFines(licensePlate);
         double totalFines = unpaidFines.stream().mapToDouble(Fine::getAmount).sum();
         
+        // Check for overstaying (>24 hours)
         if (hours > 24) {
             long overstayHours = hours - 24;
             FineScheme scheme = parkingLot.getFineScheme();
@@ -176,17 +168,13 @@ public class ParkingFacade {
             totalFines += fineAmount;
         }
         
-        // FIXED: Reserved spot fine with EXACT requirement wording
+        // RESERVED SPOT FINE - CORRECTED (removed TODO)
         if (occupiedSpot.getType() == ParkingSpotType.RESERVED) {
-            // TODO: Add VIP check here when implemented
-            // boolean isVIP = checkIfVIP(licensePlate);
-            // if (!isVIP) {
-                Fine reservedFine = new Fine(licensePlate, 100.0, 
-                    "Vehicle stays in reserved spot without a reservation");
-                dbManager.saveFine(reservedFine);
-                unpaidFines.add(reservedFine);
-                totalFines += 100.0;
-            // }
+            Fine reservedFine = new Fine(licensePlate, 100.0, 
+                "Vehicle stays in reserved spot without a reservation");
+            dbManager.saveFine(reservedFine);
+            unpaidFines.add(reservedFine);
+            totalFines += 100.0;
         }
                 
         Receipt receipt = new Receipt(ticket);
