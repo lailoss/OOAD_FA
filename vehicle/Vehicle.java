@@ -57,11 +57,11 @@ public abstract class Vehicle {
         long hours = minutes / 60;
         
         if (minutes % 60 > 0) {
-            hours++;
+            hours++;  // This is CEILING rounding!
         }
         
         return hours;
     }
-    
+        
     public abstract boolean canParkIn(ParkingSpotType spotType);
 }

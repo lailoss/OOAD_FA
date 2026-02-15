@@ -9,9 +9,6 @@ import java.util.*;
 import model.ParkingSpot;
 import model.ParkingSpotType;
 import model.SpotStatus;
-import vehicle.Vehicle;
-import vehicle.VehicleFactory;
-import vehicle.VehicleType;
 
 public class DatabaseManager {
     private static DatabaseManager instance;
@@ -437,6 +434,7 @@ public class DatabaseManager {
         }
     }
 
+        // Add this method to get occupied spots (you already have it, but here's the complete version)
     public List<ParkingSpot> getOccupiedSpots() {
         List<ParkingSpot> occupiedSpots = new ArrayList<>();
         if (!isConnected) {
@@ -448,7 +446,7 @@ public class DatabaseManager {
                     "v.license_plate, v.vehicle_type, v.has_handicapped_card, " +
                     "t.entry_time " +
                     "FROM parking_spots ps " +
-                    "JOIN vehicles v ON ps.current_vehicle = v.license_plate " +
+                    "LEFT JOIN vehicles v ON ps.current_vehicle = v.license_plate " +
                     "LEFT JOIN tickets t ON v.license_plate = t.license_plate AND t.is_active = true " +
                     "WHERE ps.status = 'OCCUPIED'";
 
@@ -456,7 +454,6 @@ public class DatabaseManager {
             ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
-                // Use the existing four-argument constructor
                 ParkingSpot spot = new ParkingSpot(
                     rs.getString("spot_id"),
                     ParkingSpotType.valueOf(rs.getString("spot_type")),
@@ -465,21 +462,21 @@ public class DatabaseManager {
                     rs.getInt("row_number")
                 );
 
-                Vehicle vehicle = VehicleFactory.createVehicle(
-                    rs.getString("license_plate"),
-                    VehicleType.valueOf(rs.getString("vehicle_type")),
-                    rs.getBoolean("has_handicapped_card")
-                );
+                String licensePlate = rs.getString("license_plate");
+                if (licensePlate != null) {
+                    Vehicle vehicle = VehicleFactory.createVehicle(
+                        licensePlate,
+                        VehicleType.valueOf(rs.getString("vehicle_type")),
+                        rs.getBoolean("has_handicapped_card")
+                    );
 
-                Timestamp entryTs = rs.getTimestamp("entry_time");
-                if (entryTs != null) {
-                    vehicle.setEntryTime(entryTs.toLocalDateTime());
-                } else {
-                    // Fallback – should not happen for occupied spots
-                    vehicle.setEntryTime(LocalDateTime.now());
+                    Timestamp entryTs = rs.getTimestamp("entry_time");
+                    if (entryTs != null) {
+                        vehicle.setEntryTime(entryTs.toLocalDateTime());
+                    }
+
+                    spot.assignVehicle(vehicle);
                 }
-
-                spot.assignVehicle(vehicle);
                 spot.setStatus(SpotStatus.OCCUPIED);
                 occupiedSpots.add(spot);
             }
@@ -489,5 +486,35 @@ public class DatabaseManager {
             e.printStackTrace();
         }
         return occupiedSpots;
+    }
+
+    // Add this method to get occupancy stats
+    public Map<String, Integer> getOccupancyStats() {
+        Map<String, Integer> stats = new HashMap<>();
+        if (!isConnected) return stats;
+        
+        String sql = """
+            SELECT 
+                COUNT(*) as total_spots,
+                SUM(CASE WHEN status = 'OCCUPIED' THEN 1 ELSE 0 END) as occupied,
+                SUM(CASE WHEN spot_type = 'HANDICAPPED' AND status = 'OCCUPIED' THEN 1 ELSE 0 END) as handicapped_occupied,
+                SUM(CASE WHEN spot_type = 'RESERVED' AND status = 'OCCUPIED' THEN 1 ELSE 0 END) as reserved_occupied
+            FROM parking_spots
+        """;
+        
+        try (Statement stmt = connection.createStatement();
+            ResultSet rs = stmt.executeQuery(sql)) {
+            
+            if (rs.next()) {
+                stats.put("total", rs.getInt("total_spots"));
+                stats.put("occupied", rs.getInt("occupied"));
+                stats.put("handicapped", rs.getInt("handicapped_occupied"));
+                stats.put("reserved", rs.getInt("reserved_occupied"));
+                stats.put("available", rs.getInt("total_spots") - rs.getInt("occupied"));
+            }
+        } catch (SQLException e) {
+            System.err.println("❌ Error getting stats: " + e.getMessage());
+        }
+        return stats;
     }
 }

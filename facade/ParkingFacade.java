@@ -6,6 +6,7 @@ import payment.*;
 import database.DatabaseManager;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.time.format.DateTimeFormatter;
 
 public class ParkingFacade {
     private static ParkingFacade instance;
@@ -28,7 +29,59 @@ public class ParkingFacade {
     public void initializeSystem() {
         parkingLot.initializeDefault();
         dbManager.connect();
-        System.out.println("✅ Parking System Initialized with MySQL");
+        
+        // CRITICAL FIX: Load existing data from database
+        if (dbManager.isConnected()) {
+            System.out.println("\n🔄 Loading existing data from database...");
+            loadParkedVehiclesFromDB();  // Load occupied spots
+            loadRevenueFromDB();          // Load revenue
+            loadFineSchemeFromDB();       // Load fine scheme
+        }
+        
+        System.out.println("✅ Parking System Initialized with MySQL\n");
+    }
+    
+    // ============ DATABASE LOADING METHODS ============
+    
+    /**
+     * Loads all currently parked vehicles from the database into the in‑memory parking lot.
+     */
+    public void loadParkedVehiclesFromDB() {
+        List<ParkingSpot> occupiedSpots = dbManager.getOccupiedSpots();
+        int loadedCount = 0;
+        
+        for (ParkingSpot spot : occupiedSpots) {
+            ParkingSpot existingSpot = parkingLot.getSpot(spot.getSpotId());
+            if (existingSpot != null && spot.getCurrentVehicle() != null) {
+                existingSpot.assignVehicle(spot.getCurrentVehicle());
+                existingSpot.setStatus(SpotStatus.OCCUPIED);
+                loadedCount++;
+                
+                // Debug output
+                System.out.println("   📍 Spot " + spot.getSpotId() + 
+                    ": " + spot.getCurrentVehicle().getLicensePlate());
+            }
+        }
+        
+        System.out.println("✅ Loaded " + loadedCount + " parked vehicles from database");
+    }
+    
+    /**
+     * Load revenue from database
+     */
+    private void loadRevenueFromDB() {
+        double revenue = dbManager.getTotalRevenue();
+        parkingLot.setTotalRevenue(revenue);
+        System.out.println("💰 Loaded revenue: RM" + String.format("%.2f", revenue));
+    }
+    
+    /**
+     * Load fine scheme from database
+     */
+    private void loadFineSchemeFromDB() {
+        FineSchemeType schemeType = dbManager.getActiveFineScheme();
+        setFineScheme(schemeType);
+        System.out.println("⚙️ Loaded fine scheme: " + schemeType);
     }
     
     // ============ PARKING OPERATIONS ============
@@ -71,6 +124,8 @@ public class ParkingFacade {
         dbManager.saveTicket(ticket);
         dbManager.updateParkingSpot(spot);
         
+        System.out.println("✅ Vehicle parked: " + licensePlate + " in spot " + spotId);
+        
         return ticket;
     }
     
@@ -93,7 +148,7 @@ public class ParkingFacade {
         }
         
         vehicle.setExitTime(LocalDateTime.now());
-        long hours = vehicle.calculateDuration();
+        long hours = vehicle.calculateDuration(); // Now using CEILING rounding
         
         double parkingFee = hours * occupiedSpot.getHourlyRate();
         
@@ -121,14 +176,19 @@ public class ParkingFacade {
             totalFines += fineAmount;
         }
         
+        // FIXED: Reserved spot fine with EXACT requirement wording
         if (occupiedSpot.getType() == ParkingSpotType.RESERVED) {
-            Fine reservedFine = new Fine(licensePlate, 100.0, 
-                "Unauthorized use of reserved spot");
-            dbManager.saveFine(reservedFine);
-            unpaidFines.add(reservedFine);
-            totalFines += 100.0;
+            // TODO: Add VIP check here when implemented
+            // boolean isVIP = checkIfVIP(licensePlate);
+            // if (!isVIP) {
+                Fine reservedFine = new Fine(licensePlate, 100.0, 
+                    "Vehicle stays in reserved spot without a reservation");
+                dbManager.saveFine(reservedFine);
+                unpaidFines.add(reservedFine);
+                totalFines += 100.0;
+            // }
         }
-        
+                
         Receipt receipt = new Receipt(ticket);
         receipt.setParkingFee(parkingFee);
         receipt.setDurationHours(hours);
@@ -145,48 +205,74 @@ public class ParkingFacade {
         dbManager.saveReceipt(receipt);
         parkingLot.addRevenue(receipt.getTotalAmount());
         
+        System.out.println("✅ Vehicle exited: " + licensePlate + 
+            " | Fee: RM" + String.format("%.2f", parkingFee) +
+            " | Fines: RM" + String.format("%.2f", totalFines));
+        
         return receipt;
     }
     
+    // ============ DATABASE SYNC METHODS ============
+    
     /**
- * Loads all currently parked vehicles from the database into the in‑memory parking lot.
- * This is called at application startup when a database connection is available.
- */
-    // public void loadParkedVehiclesFromDB() {
-    //     // Retrieve all occupied spots from the database (you need to implement this in DatabaseManager)
-    //     List<ParkingSpot> occupiedSpots = dbManager.getOccupiedSpots();
-
-    //     for (ParkingSpot spot : occupiedSpots) {
-    //         // The spot already has its currentVehicle set from the database query
-    //         // Add it to the parking lot's internal list of spots (or update existing spot)
-    //         ParkingSpot existingSpot = parkingLot.getSpot(spot.getSpotId());
-    //         if (existingSpot != null) {
-    //             // Update the existing spot with the occupied status and vehicle
-    //             existingSpot.assignVehicle(spot.getCurrentVehicle());
-    //             existingSpot.setStatus(SpotStatus.OCCUPIED);
-    //         } else {
-    //             // If the spot wasn't in the parking lot, add it (should not happen in normal setup)
-    //             parkingLot.addSpot(spot);
-    //         }
-    //     }
-
-    //     System.out.println("✅ Loaded " + occupiedSpots.size() + " currently parked vehicles from database.");
-    // }
-
-    public void loadParkedVehiclesFromDB() {
-    List<ParkingSpot> occupiedSpots = dbManager.getOccupiedSpots();
-    for (ParkingSpot spot : occupiedSpots) {
-        ParkingSpot existingSpot = parkingLot.getSpot(spot.getSpotId());
-        if (existingSpot != null) {
-            existingSpot.assignVehicle(spot.getCurrentVehicle());
-            existingSpot.setStatus(SpotStatus.OCCUPIED);
-        } else {
-            System.err.println("Warning: Spot " + spot.getSpotId() + " not found in parking lot.");
+     * Get current occupied vehicles from database
+     */
+    public List<Vehicle> getCurrentVehiclesFromDB() {
+        List<Vehicle> vehicles = new ArrayList<>();
+        
+        try {
+            List<ParkingSpot> occupiedSpots = dbManager.getOccupiedSpots();
+            for (ParkingSpot spot : occupiedSpots) {
+                if (spot.getCurrentVehicle() != null) {
+                    vehicles.add(spot.getCurrentVehicle());
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("❌ Error getting vehicles from DB: " + e.getMessage());
+        }
+        
+        return vehicles;
+    }
+    
+    /**
+     * Get occupancy stats from database
+     */
+    public Map<String, Integer> getOccupancyStatsFromDB() {
+        Map<String, Integer> stats = new HashMap<>();
+        
+        try {
+            List<ParkingSpot> occupiedSpots = dbManager.getOccupiedSpots();
+            stats.put("total", parkingLot.getTotalSpots());
+            stats.put("occupied", occupiedSpots.size());
+            stats.put("available", parkingLot.getTotalSpots() - occupiedSpots.size());
+            
+        } catch (Exception e) {
+            System.out.println("❌ Error getting stats from DB: " + e.getMessage());
+        }
+        
+        return stats;
+    }
+    
+    /**
+     * Get total revenue from database
+     */
+    public double getTotalRevenueFromDB() {
+        try {
+            return dbManager.getTotalRevenue();
+        } catch (Exception e) {
+            System.out.println("❌ Error getting revenue from DB: " + e.getMessage());
+            return 0.0;
         }
     }
-    System.out.println("✅ Loaded " + occupiedSpots.size() + " currently parked vehicles from database.");
-}
-
+    
+    // ============ ADDED: Get all unpaid fines map ============
+    /**
+     * Get all unpaid fines grouped by license plate
+     */
+    public Map<String, List<Fine>> getAllUnpaidFines() {
+        return dbManager.getAllUnpaidFines();
+    }
+    
     // ============ PAYMENT OPERATIONS ============
     
     public Payment processPayment(double amount, PaymentMethod method, Object paymentDetails) {

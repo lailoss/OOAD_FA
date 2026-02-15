@@ -48,8 +48,8 @@ public class ExitPanel extends JPanel {
         
         searchButton = new JButton("🔍 Search");
         searchButton.setPreferredSize(new Dimension(100, 30));
-        searchButton.setBackground(new Color(70, 130, 200));
-        searchButton.setForeground(Color.WHITE);
+        searchButton.setBackground(new Color(255, 165, 0));
+        searchButton.setForeground(Color.BLACK);
         searchPanel.add(searchButton);
         
         JPanel receiptPanel = new JPanel(new BorderLayout());

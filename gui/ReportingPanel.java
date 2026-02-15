@@ -44,8 +44,8 @@ public class ReportingPanel extends JPanel {
         
         generateButton = new JButton("📊 Generate Report");
         generateButton.setPreferredSize(new Dimension(150, 30));
-        generateButton.setBackground(new Color(70, 130, 200));
-        generateButton.setForeground(Color.WHITE);
+        generateButton.setBackground(new Color(255, 165, 0));
+        generateButton.setForeground(Color.BLACK);
         topPanel.add(generateButton);
         
         JPanel reportPanel = new JPanel(new BorderLayout());

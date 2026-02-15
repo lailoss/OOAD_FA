@@ -72,8 +72,8 @@ public class EntryPanel extends JPanel {
         gbc.anchor = GridBagConstraints.CENTER;
         refreshButton = new JButton("🔍 Show Available Spots");
         refreshButton.setPreferredSize(new Dimension(200, 30));
-        refreshButton.setBackground(new Color(70, 130, 200));
-        refreshButton.setForeground(Color.WHITE);
+        refreshButton.setBackground(new Color(255, 165, 0));
+        refreshButton.setForeground(Color.BLACK);
         inputPanel.add(refreshButton, gbc);
         
         JPanel spotPanel = new JPanel(new BorderLayout());
@@ -95,10 +95,10 @@ public class EntryPanel extends JPanel {
         spotPanel.add(spotScrollPane, BorderLayout.CENTER);
         
         JPanel actionPanel = new JPanel();
-        parkButton = new JButton("🅿️ Park Vehicle");
+        parkButton = new JButton("Park Vehicle");
         parkButton.setPreferredSize(new Dimension(200, 40));
-        parkButton.setBackground(new Color(34, 139, 34));
-        parkButton.setForeground(Color.WHITE);
+        parkButton.setBackground(new Color(255, 165, 0));
+        parkButton.setForeground(Color.BLACK);
         parkButton.setFont(new Font("Arial", Font.BOLD, 14));
         parkButton.setEnabled(false);
         actionPanel.add(parkButton);

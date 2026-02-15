@@ -171,4 +171,9 @@ public class ParkingLot {
         }
         return fineScheme;
     }
+
+    // In ParkingLot.java, add this method:
+    public void setTotalRevenue(double revenue) {
+        this.totalRevenue = revenue;
+    }
 }
