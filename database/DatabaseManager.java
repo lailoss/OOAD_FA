@@ -2,10 +2,16 @@ package database;
 
 import vehicle.*;
 import payment.*;
-import model.*;
+// import model.*;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.*;
+import model.ParkingSpot;
+import model.ParkingSpotType;
+import model.SpotStatus;
+import vehicle.Vehicle;
+import vehicle.VehicleFactory;
+import vehicle.VehicleType;
 
 public class DatabaseManager {
     private static DatabaseManager instance;
@@ -429,5 +435,59 @@ public class DatabaseManager {
             }
             System.err.println("❌ Error setting fine scheme: " + e.getMessage());
         }
+    }
+
+    public List<ParkingSpot> getOccupiedSpots() {
+        List<ParkingSpot> occupiedSpots = new ArrayList<>();
+        if (!isConnected) {
+            System.out.println("⚠️ Not connected to database");
+            return occupiedSpots;
+        }
+
+        String sql = "SELECT ps.spot_id, ps.spot_type, ps.hourly_rate, ps.floor_number, ps.row_number, " +
+                    "v.license_plate, v.vehicle_type, v.has_handicapped_card, " +
+                    "t.entry_time " +
+                    "FROM parking_spots ps " +
+                    "JOIN vehicles v ON ps.current_vehicle = v.license_plate " +
+                    "LEFT JOIN tickets t ON v.license_plate = t.license_plate AND t.is_active = true " +
+                    "WHERE ps.status = 'OCCUPIED'";
+
+        try (Statement stmt = connection.createStatement();
+            ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                // Use the existing four-argument constructor
+                ParkingSpot spot = new ParkingSpot(
+                    rs.getString("spot_id"),
+                    ParkingSpotType.valueOf(rs.getString("spot_type")),
+                    rs.getDouble("hourly_rate"),
+                    rs.getInt("floor_number"),
+                    rs.getInt("row_number")
+                );
+
+                Vehicle vehicle = VehicleFactory.createVehicle(
+                    rs.getString("license_plate"),
+                    VehicleType.valueOf(rs.getString("vehicle_type")),
+                    rs.getBoolean("has_handicapped_card")
+                );
+
+                Timestamp entryTs = rs.getTimestamp("entry_time");
+                if (entryTs != null) {
+                    vehicle.setEntryTime(entryTs.toLocalDateTime());
+                } else {
+                    // Fallback – should not happen for occupied spots
+                    vehicle.setEntryTime(LocalDateTime.now());
+                }
+
+                spot.assignVehicle(vehicle);
+                spot.setStatus(SpotStatus.OCCUPIED);
+                occupiedSpots.add(spot);
+            }
+            System.out.println("✅ Retrieved " + occupiedSpots.size() + " occupied spots from DB.");
+        } catch (SQLException e) {
+            System.err.println("❌ Error retrieving occupied spots: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return occupiedSpots;
     }
 }

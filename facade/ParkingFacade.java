@@ -148,6 +148,45 @@ public class ParkingFacade {
         return receipt;
     }
     
+    /**
+ * Loads all currently parked vehicles from the database into the in‑memory parking lot.
+ * This is called at application startup when a database connection is available.
+ */
+    // public void loadParkedVehiclesFromDB() {
+    //     // Retrieve all occupied spots from the database (you need to implement this in DatabaseManager)
+    //     List<ParkingSpot> occupiedSpots = dbManager.getOccupiedSpots();
+
+    //     for (ParkingSpot spot : occupiedSpots) {
+    //         // The spot already has its currentVehicle set from the database query
+    //         // Add it to the parking lot's internal list of spots (or update existing spot)
+    //         ParkingSpot existingSpot = parkingLot.getSpot(spot.getSpotId());
+    //         if (existingSpot != null) {
+    //             // Update the existing spot with the occupied status and vehicle
+    //             existingSpot.assignVehicle(spot.getCurrentVehicle());
+    //             existingSpot.setStatus(SpotStatus.OCCUPIED);
+    //         } else {
+    //             // If the spot wasn't in the parking lot, add it (should not happen in normal setup)
+    //             parkingLot.addSpot(spot);
+    //         }
+    //     }
+
+    //     System.out.println("✅ Loaded " + occupiedSpots.size() + " currently parked vehicles from database.");
+    // }
+
+    public void loadParkedVehiclesFromDB() {
+    List<ParkingSpot> occupiedSpots = dbManager.getOccupiedSpots();
+    for (ParkingSpot spot : occupiedSpots) {
+        ParkingSpot existingSpot = parkingLot.getSpot(spot.getSpotId());
+        if (existingSpot != null) {
+            existingSpot.assignVehicle(spot.getCurrentVehicle());
+            existingSpot.setStatus(SpotStatus.OCCUPIED);
+        } else {
+            System.err.println("Warning: Spot " + spot.getSpotId() + " not found in parking lot.");
+        }
+    }
+    System.out.println("✅ Loaded " + occupiedSpots.size() + " currently parked vehicles from database.");
+}
+
     // ============ PAYMENT OPERATIONS ============
     
     public Payment processPayment(double amount, PaymentMethod method, Object paymentDetails) {
@@ -200,7 +239,7 @@ public class ParkingFacade {
         parkingLot.setFineScheme(scheme);
         dbManager.setActiveFineScheme(schemeType);
     }
-    
+
     public FineScheme getCurrentFineScheme() {
         return parkingLot.getFineScheme();
     }

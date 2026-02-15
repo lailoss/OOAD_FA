@@ -2,6 +2,7 @@ import gui.MainGUI;
 import database.DatabaseManager;
 import facade.ParkingFacade;
 import javax.swing.SwingUtilities;
+import javax.swing.JOptionPane;
 
 public class Main {
     public static void main(String[] args) {
@@ -15,6 +16,12 @@ public class Main {
                     System.out.println("  CCP6224 - Object-Oriented Analysis");
                     System.out.println("========================================\n");
                     
+                    // Get facade instance first
+                    ParkingFacade facade = ParkingFacade.getInstance();
+                    
+                    // ✅ Initialize the parking lot with default spots (5 floors, 3 rows, 10 spots each)
+                    facade.getParkingLot().initializeDefault();
+                    
                     // Initialize database connection
                     DatabaseManager db = DatabaseManager.getInstance();
                     db.connect();
@@ -27,7 +34,6 @@ public class Main {
                         System.out.println("✅ Database connected - Data will persist\n");
                         
                         // Load any existing parked vehicles from database
-                        ParkingFacade facade = ParkingFacade.getInstance();
                         facade.loadParkedVehiclesFromDB();
                     }
                     
