@@ -1,6 +1,5 @@
 package model;
 
-import vehicle.Vehicle;
 import vehicle.VehicleType;
 import payment.FineScheme;
 import payment.FixedFineScheme;
@@ -25,24 +24,25 @@ public class ParkingLot {
     }
     
     public void initializeDefault() {
-        for (int f = 1; f <= 5; f++) {
-            Floor floor = new Floor(f);
+        for (int floor = 1; floor <= 5; floor++) {
+            Floor newFloor = new Floor(floor);
             
-            for (int r = 1; r <= 3; r++) {
+            for (int row = 1; row <= 3; row++) {
                 List<ParkingSpot> rowSpots = new ArrayList<>();
                 
-                for (int s = 1; s <= 10; s++) {
-                    String spotId = "F" + f + "-R" + r + "-S" + s;
+                for (int spot = 1; spot <= 10; spot++) {
+                    String spotId = "F" + floor + "-R" + row + "-S" + spot;
                     ParkingSpotType type;
                     double rate;
                     
-                    if (f == 1 && r == 1 && s <= 2) {
+                    // Assign spot types based on position
+                    if (floor == 1 && row == 1 && spot <= 2) {
                         type = ParkingSpotType.HANDICAPPED;
                         rate = 2.0;
-                    } else if (f == 5 && r == 3 && s >= 8) {
+                    } else if (floor == 5 && row == 3 && spot >= 8) {
                         type = ParkingSpotType.RESERVED;
                         rate = 10.0;
-                    } else if (s <= 3) {
+                    } else if (spot <= 3) {
                         type = ParkingSpotType.COMPACT;
                         rate = 2.0;
                     } else {
@@ -50,25 +50,26 @@ public class ParkingLot {
                         rate = 5.0;
                     }
                     
-                    ParkingSpot spot = new ParkingSpot(spotId, type, rate, f, r);
-                    rowSpots.add(spot);
+                    ParkingSpot newSpot = new ParkingSpot(spotId, type, rate, floor, row);
+                    rowSpots.add(newSpot);
                 }
                 
-                floor.addRow(r, rowSpots);
+                newFloor.addRow(row, rowSpots);
             }
             
-            floors.add(floor);
+            this.floors.add(newFloor);
         }
+        
         System.out.println("✅ Parking lot initialized: 5 floors, 3 rows, 10 spots per row");
-        System.out.println("✅ Total spots: " + getTotalSpots());
+        System.out.println("✅ Total spots: " + this.getTotalSpots());
     }
     
     public void addFloor(Floor floor) {
-        floors.add(floor);
+        this.floors.add(floor);
     }
     
     public Floor getFloor(int floorNumber) {
-        for (Floor floor : floors) {
+        for (Floor floor : this.floors) {
             if (floor.getFloorNumber() == floorNumber) {
                 return floor;
             }
@@ -78,34 +79,43 @@ public class ParkingLot {
     
     public List<ParkingSpot> getAllSpots() {
         List<ParkingSpot> allSpots = new ArrayList<>();
-        for (Floor floor : floors) {
+        for (Floor floor : this.floors) {
             allSpots.addAll(floor.getSpots());
         }
         return allSpots;
     }
     
+    /**
+     * FIXED: Now ALL vehicle types can see RESERVED spots!
+     */
     public List<ParkingSpot> getAvailableSpotsByVehicle(VehicleType vehicleType) {
         List<ParkingSpot> available = new ArrayList<>();
         
-        for (ParkingSpot spot : getAllSpots()) {
+        for (ParkingSpot spot : this.getAllSpots()) {
             if (spot.isAvailable()) {
                 switch (vehicleType) {
                     case MOTORCYCLE:
-                        if (spot.getType() == ParkingSpotType.COMPACT) {
+                        if (spot.getType() == ParkingSpotType.COMPACT ||
+                            spot.getType() == ParkingSpotType.RESERVED) {
                             available.add(spot);
                         }
                         break;
+                        
                     case CAR:
                         if (spot.getType() == ParkingSpotType.COMPACT || 
-                            spot.getType() == ParkingSpotType.REGULAR) {
+                            spot.getType() == ParkingSpotType.REGULAR ||
+                            spot.getType() == ParkingSpotType.RESERVED) {
                             available.add(spot);
                         }
                         break;
+                        
                     case SUV:
-                        if (spot.getType() == ParkingSpotType.REGULAR) {
+                        if (spot.getType() == ParkingSpotType.REGULAR ||
+                            spot.getType() == ParkingSpotType.RESERVED) {
                             available.add(spot);
                         }
                         break;
+                        
                     case HANDICAPPED:
                         available.add(spot);
                         break;
@@ -117,7 +127,7 @@ public class ParkingLot {
     }
     
     public ParkingSpot getSpot(String spotId) {
-        for (ParkingSpot spot : getAllSpots()) {
+        for (ParkingSpot spot : this.getAllSpots()) {
             if (spot.getSpotId().equals(spotId)) {
                 return spot;
             }
@@ -126,25 +136,25 @@ public class ParkingLot {
     }
     
     public double getOccupancyRate() {
-        int total = getAllSpots().size();
+        int total = this.getAllSpots().size();
         int occupied = 0;
         
-        for (ParkingSpot spot : getAllSpots()) {
+        for (ParkingSpot spot : this.getAllSpots()) {
             if (spot.getStatus() == SpotStatus.OCCUPIED) {
                 occupied++;
             }
         }
         
-        return total > 0 ? (occupied * 100.0 / total) : 0;
+        return total > 0 ? (occupied * 100.0 / total) : 0.0;
     }
     
     public int getTotalSpots() {
-        return getAllSpots().size();
+        return this.getAllSpots().size();
     }
     
     public int getOccupiedSpots() {
         int occupied = 0;
-        for (ParkingSpot spot : getAllSpots()) {
+        for (ParkingSpot spot : this.getAllSpots()) {
             if (spot.getStatus() == SpotStatus.OCCUPIED) {
                 occupied++;
             }
@@ -153,11 +163,15 @@ public class ParkingLot {
     }
     
     public double getTotalRevenue() {
-        return totalRevenue;
+        return this.totalRevenue;
     }
     
     public void addRevenue(double amount) {
         this.totalRevenue += amount;
+    }
+    
+    public void setTotalRevenue(double totalRevenue) {
+        this.totalRevenue = totalRevenue;
     }
     
     public void setFineScheme(FineScheme scheme) {
@@ -166,14 +180,9 @@ public class ParkingLot {
     }
     
     public FineScheme getFineScheme() {
-        if (fineScheme == null) {
-            fineScheme = new FixedFineScheme();
+        if (this.fineScheme == null) {
+            this.fineScheme = new FixedFineScheme();
         }
-        return fineScheme;
-    }
-
-    // In ParkingLot.java, add this method:
-    public void setTotalRevenue(double revenue) {
-        this.totalRevenue = revenue;
+        return this.fineScheme;
     }
 }

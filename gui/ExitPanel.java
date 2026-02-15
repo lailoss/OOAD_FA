@@ -126,7 +126,7 @@ public class ExitPanel extends JPanel {
         payButton = new JButton("💳 Process Payment");
         payButton.setPreferredSize(new Dimension(200, 40));
         payButton.setBackground(new Color(34, 139, 34));
-        payButton.setForeground(Color.WHITE);
+        payButton.setForeground(Color.BLACK);
         payButton.setFont(new Font("Arial", Font.BOLD, 14));
         paymentPanel.add(payButton, gbc);
         
